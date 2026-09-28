@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>QL Ansan Rawang Egg - Smart Dispatch KDS</title>
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans flex flex-col">
+
+  <!-- TOP HEADER -->
+  <header class="bg-slate-800 border-b border-slate-700 px-6 py-3 flex flex-wrap justify-between items-center shadow-lg">
+    <div class="flex items-center gap-4">
+      <!-- QL LOGO PLACEHOLDER -->
+      <div class="bg-white p-1 rounded-full w-12 h-12 flex items-center justify-center shadow overflow-hidden flex-shrink-0">
+        <img src="logo.png" alt="QL Logo" class="w-full h-full object-contain" onerror="this.src='https://placehold.co/100x100?text=QL'">
+      </div>
+      <div>
+        <h1 class="text-2xl font-black tracking-wider text-amber-400 uppercase">QL ANSAN RAWANG EGG</h1>
+        <p class="text-xs text-slate-400 font-medium">Smart Factory Packing & Dispatch KDS</p>
+      </div>
+      <div class="hidden sm:block border-l border-slate-700 pl-4">
+        <span class="text-xs text-slate-400 block font-semibold uppercase">System Date:</span>
+        <span id="currentDateDisplay" class="text-sm font-bold text-amber-300 font-mono">--/--/----</span>
+      </div>
+    </div>
+    
+    <!-- SCREEN SWITCHER, RESET & ARCHIVE BUTTONS -->
+    <div class="flex items-center gap-3 mt-3 sm:mt-0">
+      <!-- MANUAL RESET BUTTON -->
+      <button onclick="manualResetDay()" class="bg-red-950/80 hover:bg-red-900 text-red-300 hover:text-red-100 text-xs px-3 py-2 rounded-lg font-bold border border-red-700/60 transition flex items-center gap-1.5 shadow" title="Archive all finished and cancelled orders to reset today's board">
+        🔄 <span>Reset Shift / Day</span>
+      </button>
+
+      <!-- ARCHIVE BUTTON -->
+      <button onclick="openArchiveModal()" class="bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs px-3 py-2 rounded-lg font-bold border border-slate-600 transition flex items-center gap-1.5 shadow">
+        📂 <span>Past Archive</span>
+      </button>
+
+      <span class="text-sm text-slate-300 font-medium hidden md:inline">Display:</span>
+      <select id="roleSelector" onchange="switchRole(this.value)" class="bg-slate-700 text-amber-300 font-semibold px-3 py-2 rounded-lg border border-slate-600 focus:outline-none focus:ring-2 focus:ring-amber-400 text-sm">
+        <option value="OFFICE">🏢 Office (Sales & Logistics TV)</option>
+        <option value="PVC">📦 Production (PVC Line)</option>
+        <option value="CARTON">📦 Production (Carton Line)</option>
+      </select>
+    </div>
+  </header>
+
+  <!-- MAIN CONTENT -->
+  <main class="p-6 flex-1 max-w-7xl mx-auto w-full">
+
+    <!-- ============================================== -->
+    <!-- 1. OFFICE VIEW (SALES & LOGISTICS DASHBOARD)   -->
+    <!-- ============================================== -->
+    <div id="officeView" class="space-y-6">
+      <!-- New Order Entry Form -->
+      <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow">
+        <h2 class="text-lg font-bold text-amber-400 mb-3 flex items-center gap-2">
+          <span>📝 New Packing Order Entry</span>
+        </h2>
+        <form id="orderForm" onsubmit="handleNewOrder(event)" class="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 mb-1">Packing Line</label>
+            <select id="inputDept" onchange="handleDeptChange(this.value)" class="w-full bg-slate-900 border border-slate-600 rounded p-2 text-white" required>
+              <option value="PVC">PVC Cover</option>
+              <option value="CARTON">Carton Box</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 mb-1">Egg Grade / Type</label>
+            <input type="text" id="inputGrade" placeholder="e.g. Grade A / Omega" class="w-full bg-slate-900 border border-slate-600 rounded p-2 text-white" required>
+          </div>
+          <div>
+            <label id="labelQty" class="block text-xs font-semibold text-slate-400 mb-1">Quantity (Tray)</label>
+            <input type="number" id="inputQty" placeholder="e.g. 3000 Trays" class="w-full bg-slate-900 border border-slate-600 rounded p-2 text-white" required>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 mb-1">Customer / DO No.</label>
+            <input type="text" id="inputCustomer" placeholder="e.g. Mydin / DO-889" class="w-full bg-slate-900 border border-slate-600 rounded p-2 text-white" required>
+          </div>
+          <div class="flex items-end">
+            <button type="submit" class="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-2 px-4 rounded transition active:scale-95 shadow uppercase tracking-wide">
+              Dispatch Order 🚀
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Live TV Monitor (3 Columns: Active | PVC Records | Carton Records) -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Column 1: In Progress Packing -->
+        <div class="bg-slate-800/80 border border-amber-500/30 rounded-xl p-5 flex flex-col h-[750px]">
+          <h3 class="text-lg font-bold text-amber-400 pb-3 border-b border-slate-700 flex justify-between items-center">
+            <span>⏳ PACKING IN PROGRESS</span>
+            <span id="inProgressCount" class="text-xs bg-amber-500/20 px-2.5 py-0.5 rounded text-amber-300 font-mono">0 Orders</span>
+          </h3>
+          <div id="officeInProgressList" class="mt-4 space-y-3 flex-1 overflow-y-auto pr-1"></div>
+        </div>
+
+        <!-- Column 2: PVC History (Today) -->
+        <div class="bg-slate-800/80 border border-sky-500/30 rounded-xl p-5 flex flex-col h-[750px]">
+          <h3 class="text-lg font-bold text-sky-400 pb-3 border-b border-slate-700 flex justify-between items-center">
+            <span>📋 PVC RECORDS (TODAY)</span>
+            <span id="officePvcCount" class="text-xs bg-sky-500/20 px-2.5 py-0.5 rounded text-sky-300 font-mono">0 Records</span>
+          </h3>
+          <div id="officePvcHistoryList" class="mt-4 space-y-3 flex-1 overflow-y-auto pr-1"></div>
+        </div>
+
+        <!-- Column 3: Carton History (Today) -->
+        <div class="bg-slate-800/80 border border-purple-500/30 rounded-xl p-5 flex flex-col h-[750px]">
+          <h3 class="text-lg font-bold text-purple-400 pb-3 border-b border-slate-700 flex justify-between items-center">
+            <span>📋 CARTON RECORDS (TODAY)</span>
+            <span id="officeCartonCount" class="text-xs bg-purple-500/20 px-2.5 py-0.5 rounded text-purple-300 font-mono">0 Records</span>
+          </h3>
+          <div id="officeCartonHistoryList" class="mt-4 space-y-3 flex-1 overflow-y-auto pr-1"></div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ============================================================== -->
+    <!-- 2. PRODUCTION VIEW (PVC / CARTON: ACTIVE QUEUE + DONE HISTORY) -->
+    <!-- ============================================================== -->
+    <div id="productionView" class="hidden space-y-6">
+      <div class="bg-slate-800 border-l-4 border-amber-500 p-4 rounded flex justify-between items-center shadow">
+        <div>
+          <h2 id="productionTitle" class="text-2xl font-black text-white uppercase tracking-wider">PACKING LINE</h2>
+          <p class="text-slate-400 text-sm">Tap the green "DONE PACKING" button when job is completed.</p>
+        </div>
+        <div class="text-right">
+          <span class="text-xs text-slate-400 block font-semibold uppercase">Network Status:</span>
+          <span class="inline-block w-2.5 h-2.5 bg-emerald-500 rounded-full animate-ping"></span>
+          <span class="text-emerald-400 font-bold text-xs ml-1">LIVE DISPATCH</span>
+        </div>
+      </div>
+
+      <!-- 2-Column Station Layout -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- LEFT COLUMN: ACTIVE JOBS TO PACK -->
+        <div class="lg:col-span-2 space-y-4">
+          <div class="flex justify-between items-center border-b border-slate-700 pb-2">
+            <h3 class="text-lg font-bold text-amber-400 flex items-center gap-2">
+              <span>⏳ ACTIVE QUEUE (TO PACK)</span>
+            </h3>
+            <span id="prodQueueCount" class="text-xs bg-amber-500/20 text-amber-300 px-2.5 py-1 rounded-full font-bold">0 Pending</span>
+          </div>
+
+          <div id="productionActiveList" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- Active Job Cards Inserted Here -->
+          </div>
+        </div>
+
+        <!-- RIGHT COLUMN: STATION HISTORY TODAY -->
+        <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-4 flex flex-col h-[750px] shadow">
+          <div class="flex justify-between items-center border-b border-slate-700 pb-2 mb-3">
+            <h3 class="text-sm font-bold text-emerald-400 flex items-center gap-1.5 uppercase">
+              <span>📋 TODAY'S LOG (<span id="stationHistoryTag">LINE</span>)</span>
+            </h3>
+            <span id="prodHistoryCount" class="text-xs bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full font-bold font-mono">0 Records</span>
+          </div>
+          
+          <div id="productionHistoryList" class="flex-1 overflow-y-auto space-y-3 pr-1">
+            <!-- Station Log Cards Inserted Here -->
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </main>
+
+  <!-- PAST ARCHIVE MODAL -->
+  <div id="archiveModal" class="fixed inset-0 bg-black/80 hidden items-center justify-center p-4 z-50">
+    <div class="bg-slate-800 border border-slate-700 rounded-xl max-w-3xl w-full p-6 max-h-[85vh] flex flex-col shadow-2xl">
+      <div class="flex justify-between items-center border-b border-slate-700 pb-3 mb-4">
+        <div>
+          <h3 class="text-xl font-bold text-amber-400">📂 Past Archives (Completed & Cancelled)</h3>
+          <p class="text-xs text-slate-400">List of archived orders prior to today's date.</p>
+        </div>
+        <button onclick="closeArchiveModal()" class="text-slate-400 hover:text-white font-bold text-lg px-2">✕</button>
+      </div>
+
+      <div id="archiveListContainer" class="flex-1 overflow-y-auto space-y-2 pr-2">
+        <!-- Archived Records Inserted Here -->
+      </div>
+
+      <div class="border-t border-slate-700 pt-3 mt-4 text-right">
+        <button onclick="closeArchiveModal()" class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg text-sm font-bold">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function getTodayString() {
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, '0');
+      const d = String(now.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+
+    function getFormattedDate(dateStr) {
+      if (!dateStr) return '';
+      const parts = dateStr.split('-');
+      return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+
+    const todayStr = getTodayString();
+    document.getElementById('currentDateDisplay').innerText = getFormattedDate(todayStr);
+
+    let orders = JSON.parse(localStorage.getItem('egg_orders_data')) || [
+      { id: 101, dept: 'PVC', unit: 'Tray', grade: 'Grade A', qty: 3000, customer: 'Pasaraya Segar', status: 'PACKING', date: todayStr, time: '10:30 AM', completedTime: null },
+      { id: 102, dept: 'CARTON', unit: 'Carton', grade: 'Omega 10s', qty: 150, customer: 'Mydin Mart', status: 'READY', date: todayStr, time: '10:15 AM', completedTime: '10:45 AM' },
+      { id: 103, dept: 'PVC', unit: 'Tray', grade: 'Grade B', qty: 1000, customer: 'Amin Mart', status: 'CANCELLED', date: todayStr, time: '09:30 AM', completedTime: '09:40 AM' }
+    ];
+
+    let archivedOrders = JSON.parse(localStorage.getItem('egg_orders_archive')) || [];
+
+    // AUTO-RESET: Orders completed/cancelled prior to today are moved to archive
+    function checkAndResetDailyData() {
+      const remainingOrders = [];
+      let hasArchived = false;
+
+      orders.forEach(order => {
+        if ((order.status === 'READY' || order.status === 'CANCELLED') && order.date && order.date < todayStr) {
+          archivedOrders.unshift(order);
+          hasArchived = true;
+        } else {
+          remainingOrders.push(order);
+        }
+      });
+
+      if (hasArchived) {
+        orders = remainingOrders;
+        localStorage.setItem('egg_orders_data', JSON.stringify(orders));
+        localStorage.setItem('egg_orders_archive', JSON.stringify(archivedOrders));
+      }
+    }
+
+    checkAndResetDailyData();
+
+    // MANUAL RESET FUNCTION
+    function manualResetDay() {
+      const confirmed = confirm("Are you sure you want to RESET the board?\n\n• All COMPLETED & CANCELLED records today will be archived.\n• In-progress (PACKING) orders will remain active.");
+      if (!confirmed) return;
+
+      const remainingOrders = [];
+      let countMoved = 0;
+
+      orders.forEach(order => {
+        if (order.status === 'READY' || order.status === 'CANCELLED') {
+          archivedOrders.unshift(order);
+          countMoved++;
+        } else {
+          remainingOrders.push(order);
+        }
+      });
+
+      orders = remainingOrders;
+      localStorage.setItem('egg_orders_archive', JSON.stringify(archivedOrders));
+      saveAndSync();
+      alert(`Reset successful! ${countMoved} finished records moved to Past Archive.`);
+    }
+
+    let currentRole = 'OFFICE';
+    const syncChannel = new BroadcastChannel('egg_kds_channel');
+
+    syncChannel.onmessage = (event) => {
+      orders = event.data;
+      localStorage.setItem('egg_orders_data', JSON.stringify(orders));
+      renderUI();
+      playNotificationSound();
+    };
+
+    function handleDeptChange(dept) {
+      const label = document.getElementById('labelQty');
+      const input = document.getElementById('inputQty');
+      if (dept === 'PVC') {
+        label.innerText = 'Quantity (Tray)';
+        input.placeholder = 'e.g. 3000 Trays';
+      } else {
+        label.innerText = 'Quantity (Carton)';
+        input.placeholder = 'e.g. 150 Cartons';
+      }
+    }
+
+    function playNotificationSound() {
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(587.33, audioCtx.currentTime);
+        osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.15);
+        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.4);
+      } catch (e) {
+        console.log("Audio permission required");
+      }
+    }
+
+    function switchRole(role) {
+      currentRole = role;
+      const officeView = document.getElementById('officeView');
+      const prodView = document.getElementById('productionView');
+
+      if (role === 'OFFICE') {
+        officeView.classList.remove('hidden');
+        prodView.classList.add('hidden');
+      } else {
+        officeView.classList.add('hidden');
+        prodView.classList.remove('hidden');
+        document.getElementById('productionTitle').innerText = `PACKING LINE: ${role}`;
+        document.getElementById('stationHistoryTag').innerText = `${role} LINE`;
+      }
+      renderUI();
+    }
+
+    function handleNewOrder(e) {
+      e.preventDefault();
+      const dept = document.getElementById('inputDept').value;
+      const grade = document.getElementById('inputGrade').value;
+      const qty = document.getElementById('inputQty').value;
+      const customer = document.getElementById('inputCustomer').value;
+      const unit = (dept === 'PVC') ? 'Tray' : 'Carton';
+
+      const newOrder = {
+        id: Math.floor(100 + Math.random() * 900),
+        dept: dept,
+        unit: unit,
+        grade: grade,
+        qty: qty,
+        customer: customer,
+        status: 'PACKING',
+        date: todayStr,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        completedTime: null
+      };
+
+      orders.unshift(newOrder);
+      saveAndSync();
+      e.target.reset();
+      handleDeptChange(document.getElementById('inputDept').value);
+      playNotificationSound();
+    }
+
+    function markAsDone(orderId) {
+      const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      orders = orders.map(ord => {
+        if (ord.id === orderId) {
+          return { ...ord, status: 'READY', completedTime: nowTime };
+        }
+        return ord;
+      });
+      saveAndSync();
+    }
+
+    function cancelOrder(orderId) {
+      const confirmed = confirm(`Are you sure you want to CANCEL Order #${orderId}?`);
+      if (confirmed) {
+        const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        orders = orders.map(ord => {
+          if (ord.id === orderId) {
+            return { ...ord, status: 'CANCELLED', completedTime: nowTime };
+          }
+          return ord;
+        });
+        saveAndSync();
+      }
+    }
+
+    function restoreOrder(orderId) {
+      orders = orders.map(ord => {
+        if (ord.id === orderId) {
+          return { ...ord, status: 'PACKING', completedTime: null };
+        }
+        return ord;
+      });
+      saveAndSync();
+    }
+
+    function saveAndSync() {
+      localStorage.setItem('egg_orders_data', JSON.stringify(orders));
+      syncChannel.postMessage(orders);
+      renderUI();
+    }
+
+    function openArchiveModal() {
+      const container = document.getElementById('archiveListContainer');
+      if (archivedOrders.length === 0) {
+        container.innerHTML = '<p class="text-slate-400 text-center py-8">No archived records found.</p>';
+      } else {
+        container.innerHTML = archivedOrders.map(o => `
+          <div class="bg-slate-900 border ${o.status === 'CANCELLED' ? 'border-red-500/30' : 'border-slate-700'} p-3 rounded-lg flex justify-between items-center text-sm">
+            <div>
+              <span class="font-bold text-amber-400">#${o.id}</span>
+              <span class="text-xs bg-slate-800 text-slate-300 px-2 py-0.5 rounded ml-1 font-semibold">${o.dept}</span>
+              <span class="text-white font-bold ml-2">${Number(o.qty).toLocaleString()} ${o.unit} (${o.grade})</span>
+              <p class="text-xs text-slate-400 mt-0.5">Customer: ${o.customer}</p>
+            </div>
+            <div class="text-right">
+              <span class="text-xs text-slate-400 block font-mono">Date: ${getFormattedDate(o.date)}</span>
+              ${o.status === 'CANCELLED' 
+                ? '<span class="text-xs text-red-400 font-bold font-mono">CANCELLED</span>' 
+                : `<span class="text-xs text-emerald-400 font-mono">Done: ${o.completedTime || '-'}</span>`}
+            </div>
+          </div>
+        `).join('');
+      }
+      document.getElementById('archiveModal').classList.remove('hidden');
+      document.getElementById('archiveModal').classList.add('flex');
+    }
+
+    function closeArchiveModal() {
+      document.getElementById('archiveModal').classList.add('hidden');
+      document.getElementById('archiveModal').classList.remove('flex');
+    }
+
+    function renderHistoryCard(o, showRestore = true) {
+      const isCancelled = o.status === 'CANCELLED';
+      const borderClass = isCancelled ? 'border-red-500/40 bg-red-950/20' : 'border-emerald-500/30 bg-slate-900/90';
+      const badgeClass = isCancelled ? 'bg-red-950 text-red-400 border border-red-500/40' : 'bg-emerald-950 text-emerald-300 border border-emerald-500/30';
+      const labelStatus = isCancelled ? `Cancelled (${o.completedTime || '-'})` : `Done (${o.completedTime || '-'})`;
+
+      return `
+        <div class="border rounded-lg p-3 text-sm space-y-1 ${borderClass}">
+          <div class="flex justify-between items-center">
+            <span class="font-bold ${isCancelled ? 'text-red-400 line-through' : 'text-emerald-400'}">#${o.id}</span>
+            <span class="text-xs px-2 py-0.5 rounded font-mono font-bold ${badgeClass}">${labelStatus}</span>
+          </div>
+          <p class="${isCancelled ? 'text-slate-400 line-through' : 'text-white font-bold'}">
+            ${Number(o.qty).toLocaleString()} ${o.unit} (${o.grade})
+          </p>
+          <div class="flex justify-between items-center pt-1 text-xs text-slate-400 border-t border-slate-800">
+            <span>Customer: ${o.customer}</span>
+            ${showRestore ? `<button onclick="restoreOrder(${o.id})" class="text-amber-400 hover:underline">↩ Restore</button>` : ''}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderUI() {
+      const inProgressOrders = orders.filter(o => o.status === 'PACKING');
+      
+      const pvcHistoryToday = orders.filter(o => o.dept === 'PVC' && (o.status === 'READY' || o.status === 'CANCELLED') && (!o.date || o.date === todayStr));
+      const cartonHistoryToday = orders.filter(o => o.dept === 'CARTON' && (o.status === 'READY' || o.status === 'CANCELLED') && (!o.date || o.date === todayStr));
+
+      // 1. Office View Render
+      document.getElementById('inProgressCount').innerText = `${inProgressOrders.length} Orders`;
+      document.getElementById('officePvcCount').innerText = `${pvcHistoryToday.length} Records`;
+      document.getElementById('officeCartonCount').innerText = `${cartonHistoryToday.length} Records`;
+
+      document.getElementById('officeInProgressList').innerHTML = inProgressOrders.map(o => `
+        <div class="bg-slate-900 border-l-4 border-amber-500 p-4 rounded-lg flex justify-between items-center shadow">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="font-bold text-amber-400">#${o.id}</span>
+              <span class="text-xs bg-slate-700 px-2 py-0.5 rounded text-white font-semibold">${o.dept}</span>
+              ${o.date && o.date !== todayStr ? '<span class="text-xs bg-red-900/60 text-red-300 border border-red-500/40 px-1.5 py-0.2 rounded font-mono">Brought Fwd</span>' : ''}
+            </div>
+            <p class="text-lg font-bold text-white mt-1">${Number(o.qty).toLocaleString()} ${o.unit || 'Units'} - ${o.grade}</p>
+            <p class="text-xs text-slate-400">Customer: ${o.customer} | Entered: ${o.time}</p>
+          </div>
+          <div class="flex flex-col items-end gap-2">
+            <span class="text-xs text-amber-400 bg-amber-950/60 px-2.5 py-1 rounded-full animate-pulse border border-amber-500/30">Packing...</span>
+            <button onclick="cancelOrder(${o.id})" class="text-xs text-red-400 hover:text-red-300 hover:underline">
+              Cancel ✕
+            </button>
+          </div>
+        </div>
+      `).join('') || '<p class="text-slate-500 text-center py-6">No active packing orders.</p>';
+
+      document.getElementById('officePvcHistoryList').innerHTML = pvcHistoryToday.map(o => renderHistoryCard(o, true)).join('') || '<p class="text-slate-500 text-center py-6 text-sm">No PVC records today.</p>';
+      document.getElementById('officeCartonHistoryList').innerHTML = cartonHistoryToday.map(o => renderHistoryCard(o, true)).join('') || '<p class="text-slate-500 text-center py-6 text-sm">No Carton records today.</p>';
+
+      // 2. Production View Render
+      if (currentRole !== 'OFFICE') {
+        const myActive = orders.filter(o => o.dept === currentRole && o.status === 'PACKING');
+        const myHistory = orders.filter(o => o.dept === currentRole && (o.status === 'READY' || o.status === 'CANCELLED') && (!o.date || o.date === todayStr));
+
+        document.getElementById('prodQueueCount').innerText = `${myActive.length} Pending`;
+        document.getElementById('prodHistoryCount').innerText = `${myHistory.length} Records`;
+
+        // Active Queue Cards
+        document.getElementById('productionActiveList').innerHTML = myActive.map(o => `
+          <div class="bg-slate-800 border-2 border-amber-500/50 rounded-xl p-5 shadow-2xl flex flex-col justify-between">
+            <div>
+              <div class="flex justify-between items-center mb-2">
+                <span class="text-2xl font-black text-amber-400">#${o.id}</span>
+                <span class="text-xs bg-slate-700 px-2 py-1 rounded text-slate-300 font-mono">Time: ${o.time}</span>
+              </div>
+              <h3 class="text-3xl font-black text-white tracking-wide mb-1">${Number(o.qty).toLocaleString()} ${o.unit.toUpperCase()}</h3>
+              <p class="text-amber-300 font-bold text-lg mb-2">${o.grade}</p>
+              <p class="text-sm text-slate-400 border-t border-slate-700 pt-2 mb-4">Customer: <strong class="text-white">${o.customer}</strong></p>
+            </div>
+            
+            <div class="space-y-2">
+              <button onclick="markAsDone(${o.id})" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-3.5 px-4 rounded-xl text-base shadow-lg active:scale-95 transition flex items-center justify-center gap-2 tracking-wide uppercase">
+                <span>DONE PACKING</span> ✓
+              </button>
+              <button onclick="cancelOrder(${o.id})" class="w-full text-center text-xs text-red-400 hover:text-red-300 py-1 transition">
+                Cancel This Order ✕
+              </button>
+            </div>
+          </div>
+        `).join('') || '<div class="col-span-full text-center py-12 bg-slate-800/40 rounded-xl border border-dashed border-slate-700"><p class="text-xl text-slate-500 font-semibold">All orders completed! Take a break ☕</p></div>';
+
+        // Station-specific History
+        document.getElementById('productionHistoryList').innerHTML = myHistory.map(o => renderHistoryCard(o, true)).join('') || `<p class="text-slate-500 text-center py-6 text-sm">No records for ${currentRole} Line today.</p>`;
+      }
+    }
+
+    renderUI();
+  </script>
+</body>
+</html>
